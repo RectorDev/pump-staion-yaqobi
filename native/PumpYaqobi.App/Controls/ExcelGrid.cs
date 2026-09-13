@@ -262,18 +262,19 @@ public class ExcelGrid : DataGrid
     {
         var rowH = double.IsNaN(RowHeight) || RowHeight <= 0 ? 44d : RowHeight;
 
+        // ⚠️ از کَش، نه از گشتنِ درخت. این تابع در هر پاسِ چیدمان صدا زده
+        // می‌شود (هم از ‎MeasureOverride‎ هم از ‎Settle‎)، و گشتنِ کلِ درخت در
+        // هر پاس یعنی هزاران بازدیدِ بی‌فایده. اندازه‌گیری: باز کردنِ یک ورق
+        // ۴٬۳۲۴ میلی‌ثانیه بود در حالی که خواندنش از دیتابیس فقط ۳ میلی‌ثانیه.
         var head = 0d;
         if (HeadersVisibility != DataGridHeadersVisibility.None)
         {
-            foreach (var h in this.GetVisualDescendants().OfType<DataGridColumnHeader>())
-                head = Math.Max(head, h.Bounds.Height);
+            head = HeaderHeight();
             if (head <= 0) head = rowH;                    // هنوز چیده نشده
         }
 
         var bar = 0d;
-        var hbar = this.GetVisualDescendants().OfType<ScrollBar>()
-                       .FirstOrDefault(b => b.Orientation == Orientation.Horizontal);
-        if (hbar is { IsVisible: true }) bar = Math.Max(hbar.Bounds.Height, 12d);
+        if (HScrollBar is { IsVisible: true } hbar) bar = Math.Max(hbar.Bounds.Height, 12d);
 
         return head + rows * rowH + BorderThickness.Top + BorderThickness.Bottom + bar + _pad;
     }
@@ -297,13 +298,42 @@ public class ExcelGrid : DataGrid
         // جدولی که سرِ یک صفحه ایستاده، نوارِ لغزشِ خودش را به‌عمد دارد
         if (!GrowsToContent && WantedHeight(rows) > ScreenHeight()) return;
 
-        var vbar = this.GetVisualDescendants().OfType<ScrollBar>()
-                       .FirstOrDefault(b => b.Orientation == Orientation.Vertical);
-        if (vbar is null || !vbar.IsVisible || vbar.Maximum <= 1) return;
+        if (VerticalBar is not { IsVisible: true } vbar || vbar.Maximum <= 1) return;
 
         _pad += vbar.Maximum + 2;
         _padRows = rows;
         InvalidateMeasure();
+    }
+
+    // ══ کَشِ اجزای قالب ═══════════════════════════════════════════════════════
+    //
+    // ⚠️ اینها در هر پاسِ چیدمان لازم‌اند، پس **نباید** هر بار با گشتنِ درخت
+    // پیدا شوند. با ۸۰ ردیف و ۱۰ کنترل در هر ردیف، هر گشت چند هزار بازدید
+    // است — و ‎Settle‎ هم ‎InvalidateMeasure‎ می‌زند، یعنی پاسِ بعدی و گشتِ
+    // بعدی. همان حلقه‌ای که باز کردنِ ورق را ۴٫۳ ثانیه کرده بود.
+    //
+    // با عوض شدنِ قالب یا ردیف‌ها، کَش خودش باطل می‌شود (ریشهٔ بصری عوض شده).
+
+    private ScrollBar? _hbar;
+    private double _headH;
+
+    private ScrollBar? HScrollBar
+    {
+        get
+        {
+            if (_hbar is { } b && b.GetVisualRoot() is not null) return b;
+            return _hbar = this.GetVisualDescendants().OfType<ScrollBar>()
+                               .FirstOrDefault(x => x.Orientation == Orientation.Horizontal);
+        }
+    }
+
+    /// <summary>بلندیِ سرستون — یک بار اندازه گرفته می‌شود و همان می‌ماند.</summary>
+    private double HeaderHeight()
+    {
+        if (_headH > 0) return _headH;
+        foreach (var h in this.GetVisualDescendants().OfType<DataGridColumnHeader>())
+            _headH = Math.Max(_headH, h.Bounds.Height);
+        return _headH;
     }
 
     /// <summary>شمارِ ردیف‌ها — نامعلوم یعنی «محتاط باش و تنگنا بگذار».</summary>
@@ -705,19 +735,38 @@ public class ExcelGrid : DataGrid
         set => SetValue(RowDeleteCommandProperty, value);
     }
 
-    /// <summary>منوی راست‌کلیکِ ردیف — فقط وقتی فرمانِ حذف داده شده باشد.</summary>
+    /// <summary>
+    /// ══ منوی راست‌کلیکِ ردیف — ساخته‌شده در لحظهٔ راست‌کلیک ══════════════════
+    ///
+    /// ⚠️ پیش از این برای **هر ردیفِ ساخته‌شده** یک ‎MenuFlyout‎ و یک
+    /// ‎MenuItem‎ و یک اتصال ساخته می‌شد. اندازه‌گیری نشان داد هزینهٔ باز شدنِ
+    /// صفحه تقریباً خطیِ شمارِ ردیف‌های ساخته‌شده است و هر ردیف گران تمام
+    /// می‌شود — و فلای‌اوت از سنگین‌ترین چیزهایی است که می‌شود به یک ردیف
+    /// آویزان کرد، در حالی که کاربر شاید هیچ‌وقت راست‌کلیک نکند.
+    ///
+    /// حالا ردیف فقط یک قلابِ سبک می‌گیرد و منو همان لحظه‌ای ساخته می‌شود که
+    /// واقعاً راست‌کلیک شد.
+    /// </summary>
     private void OnRowMenu(object? sender, DataGridRowEventArgs e)
     {
-        if (RowDeleteCommand is null) { e.Row.ContextFlyout = null; return; }
+        e.Row.ContextFlyout = null;
+        e.Row.ContextRequested -= OnRowContext;
+        if (RowDeleteCommand is null) return;
+        e.Row.ContextRequested += OnRowContext;
+    }
 
-        var item = new MenuItem { Header = "🗑 حذفِ این ردیف" };
-        item.Bind(MenuItem.CommandProperty,
-                  this.GetObservable(RowDeleteCommandProperty));
-        item.CommandParameter = e.Row.DataContext;
+    private void OnRowContext(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not DataGridRow row || RowDeleteCommand is null) return;
 
-        // ⚠️ ردیف‌ها بازچرخانی می‌شوند (مجازی‌سازی)، پس منو هم باید هر بار از
-        // نو ساخته شود؛ نگه داشتنِ یک منوی مشترک، ردیفِ اشتباه را حذف می‌کرد.
-        e.Row.ContextFlyout = new MenuFlyout { ItemsSource = new[] { item } };
+        var item = new MenuItem
+        {
+            Header = "🗑 حذفِ این ردیف",
+            Command = RowDeleteCommand,
+            CommandParameter = row.DataContext,
+        };
+        new MenuFlyout { ItemsSource = new[] { item } }.ShowAt(row, showAtPointer: true);
+        e.Handled = true;
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
