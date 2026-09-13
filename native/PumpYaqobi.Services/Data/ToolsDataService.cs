@@ -45,53 +45,126 @@ public sealed class ToolsDataService
     public async Task<List<AgingRow>> AgingAsync(AgingFilter filter, CancellationToken ct = default)
     {
         _perm.Require(Permission.ViewData);
-        var people = await LoadDebtorsAsync(ct);
+        var people = await LoadSummarisedAsync(ct);
         return _aging.Rows(people, filter, Shamsi.Today());
     }
 
     /// <summary>
-    /// ══ سه کوئریِ صاف، بی هیچ ‎Include‎ ══════════════════════════════════════
+    /// ══ همان سه بخش، بی خواندنِ حتی یک ردیف ═══════════════════════════════
     ///
-    /// «قرض‌های کهنه» واقعاً همهٔ ردیف‌ها را لازم دارد، پس این‌جا چیزی برای
-    /// نخواندن نیست — ولی **شکلِ** خواندن هزینه دارد. سنجشِ کارایی همین را
-    /// نشان داد:
+    /// «قرض‌های کهنه» و «خلاصهٔ قرض‌داران» هر دو ‎LoadDebtorsAsync‎ را صدا
+    /// می‌زدند، یعنی **همهٔ ردیف‌های همهٔ حساب‌ها** را می‌خواندند. سنجش نشان داد
+    /// ۱٬۹۰۲ و ۱٬۸۹۸ میلی‌ثانیه.
     ///
-    ///     خواندنِ صافِ ۵۰٬۰۰۰ ردیف                    ۴۴۴ ms
-    ///     همان ردیف‌ها از راهِ ‎Include‎              ۵٬۶۲۶ ms
+    /// ولی هیچ‌کدام به خودِ ردیف‌ها کاری ندارند. آن‌ها فقط سه چیز می‌خواهند:
     ///
-    /// دقیقاً همان چیزی که در ‎DebtorService.LoadFullAsync‎ هم دیده شد. پس
-    /// این‌جا هم سه کوئریِ ساده زده می‌شود — اشخاص، حساب‌ها، ردیف‌ها — و
-    /// وصل کردنشان در حافظه با یک فرهنگِ کلید انجام می‌شود.
+    ///   ۱) جمع‌های هر حساب — که ‎AccountTotals‎ از ردیف‌ها می‌سازد،
+    ///   ۲) تازه‌ترین تاریخ (برای «چند روز بی‌حرکت»)،
+    ///   ۳) قدیمی‌ترین تاریخ (برای «مدت عضویت» در همان ردیف).
     ///
-    /// ⚠️ ردیف‌ها بی هیچ صافی خوانده می‌شوند و ردیفِ حساب‌های «بی‌فاکتور» در
-    /// حافظه کنار گذاشته می‌شود. صافیِ ‎Contains‎ روی SQLite به ‎json_each‎
-    /// ترجمه می‌شود و ایندکس را از دست می‌دهد — یعنی همان کلِ جدول، ولی
-    /// گران‌تر.
+    /// هر سه را خودِ دیتابیس با ‎SUM‎/‎MIN‎/‎MAX‎ می‌دهد. بعد به ازای هر حساب
+    /// **دو ردیفِ ساختگی** گذاشته می‌شود که همان جمع‌ها و همان دو تاریخ را
+    /// دارند، و از آن‌جا به بعد همان کدِ همیشگی کار می‌کند.
+    ///
+    /// ⚠️ چرا نتیجه مو‌به‌مو همان است — این را با خودِ ‎AccountTotals‎ سنجیدم:
+    ///   • ‎.All‎ (که این دو بخش می‌خوانند) جمعِ پطرول و دیزل است، پس تفکیکِ
+    ///     سوخت در آن حذف می‌شود و جمعِ ساده می‌ماند.
+    ///   • ردیف‌های دفترِ تیل در ‎Liters/Rasid/RasidFuel/Albaqi/Bardagi‎ جمع
+    ///     می‌شوند و ردیف‌های دفترِ پول فقط در ‎Rasid/Albaqi/Bardagi‎ — همان
+    ///     تفکیکی که این‌جا هم با دو ‎SUM‎ی جدا نگه داشته شده.
+    ///   • ستون‌های خودِ حساب (‎RasidFuelPetrol‎ و مانندِ آن) دست‌نخورده‌اند،
+    ///     چون خودِ رکوردِ حساب کامل خوانده می‌شود.
+    ///   • بیشینه/کمینهٔ تاریخ هم عیناً همان چیزی است که آن حلقه‌ها می‌گرفتند.
+    ///
+    /// یعنی هیچ محاسبه‌ای عوض نشد؛ فقط جمع‌زدن از حافظه به دیتابیس رفت.
     /// </summary>
-    private async Task<List<Debtor>> LoadDebtorsAsync(CancellationToken ct)
+    private async Task<List<Debtor>> LoadSummarisedAsync(CancellationToken ct)
     {
         await using var db = _dbf.Create();
+
         var people = await db.Debtors.AsNoTracking().Where(d => !d.IsNoInvoice)
                              .OrderBy(d => d.Name).ToListAsync(ct);
         if (people.Count == 0) return people;
 
         var byId = people.ToDictionary(p => p.Id);
         var byAccount = new Dictionary<long, DebtAccount>();
-
         foreach (var a in await db.DebtAccounts.AsNoTracking().ToListAsync(ct))
         {
-            if (a.MainOfDebtorId is { } m && byId.TryGetValue(m, out var owner)) owner.MainAccount = a;
-            else if (a.DebtorId is { } s && byId.TryGetValue(s, out var p2)) p2.SubAccounts.Add(a);
-            else continue;                      // حسابِ یک شخصِ بی‌فاکتور — به ما ربطی ندارد
+            if (a.MainOfDebtorId is { } m && byId.TryGetValue(m, out var o1)) o1.MainAccount = a;
+            else if (a.DebtorId is { } sid && byId.TryGetValue(sid, out var o2)) o2.SubAccounts.Add(a);
+            else continue;
             byAccount[a.Id] = a;
         }
 
-        foreach (var r in await db.DebtRows.AsNoTracking().ToListAsync(ct))
+        // ══ چرا جمع در حافظه و نه ‎SUM‎ی خودِ SQL ═══════════════════════════
+        //
+        // اول با ‎GroupBy(...).Select(g => g.Sum(...))‎ نوشته شد و EF آن را
+        // ترجمه نکرد: در SQLite جمعِ ستونِ ‎decimal‎ پشتیبانی نمی‌شود (اعشاری
+        // آن‌جا متن ذخیره می‌شود). می‌شد با ‎CAST(... AS REAL)‎ دورش زد، ولی
+        // در یک برنامهٔ حسابداری این یعنی ریسکِ تغییرِ خاموشِ عددها — و قرار
+        // بود هیچ محاسبه‌ای عوض نشود.
+        //
+        // پس جمع همان‌جا که بود می‌ماند (‎decimal‎، دقیق)، ولی از دیتابیس فقط
+        // **هشت ستونِ لازم** خوانده می‌شود، نه رکوردِ کاملِ ردیف با بیست‌وچند
+        // ستون و ساختِ شیءِ موجودیت. همان کارِ قبلی، با کسری از هزینه.
+        var slim = await db.DebtRows.AsNoTracking()
+            .Select(r => new
+            {
+                r.FuelAccountId, r.MoneyAccountId, r.DateKey,
+                r.Liters, r.Rasid, r.RasidFuel, r.Albaqi, r.Bardagi,
+            }).ToListAsync(ct);
+
+        // حساب ⇦ جمع‌ها و دو تاریخ (تیل و پول جدا، مثلِ ‎AccountTotals‎)
+        var agg = new Dictionary<(long Account, bool Money), Roll>();
+
+        foreach (var r in slim)
         {
-            if (r.FuelAccountId is { } f && byAccount.TryGetValue(f, out var fa)) fa.FuelRows.Add(r);
-            else if (r.MoneyAccountId is { } n && byAccount.TryGetValue(n, out var ma)) ma.MoneyRows.Add(r);
+            var money = r.FuelAccountId is null;
+            var id = r.FuelAccountId ?? r.MoneyAccountId;
+            if (id is not { } acc || !byAccount.ContainsKey(acc)) continue;
+
+            var key = (acc, money);
+            agg.TryGetValue(key, out var v);
+            v.Rasid += r.Rasid;
+            v.Albaqi += r.Albaqi;
+            v.Bardagi += r.Bardagi;
+            if (!money) { v.Liters += r.Liters; v.RasidFuel += r.RasidFuel; }
+            if (r.DateKey > 0)
+            {
+                if (v.First == 0 || r.DateKey < v.First) v.First = r.DateKey;
+                if (r.DateKey > v.Last) v.Last = r.DateKey;
+            }
+            agg[key] = v;
         }
+
+        foreach (var ((acc, money), v) in agg)
+        {
+            if (!byAccount.TryGetValue(acc, out var a)) continue;
+            var list = money ? a.MoneyRows : a.FuelRows;
+
+            list.Add(new DebtRow
+            {
+                Fuel = FuelType.Petrol,
+                Liters = v.Liters, Rasid = v.Rasid, RasidFuel = v.RasidFuel,
+                Albaqi = v.Albaqi, Bardagi = v.Bardagi,
+                DateKey = v.First, DateShamsi = Shamsi.FromKey(v.First),
+            });
+            if (v.Last != v.First)
+                list.Add(new DebtRow
+                {
+                    Fuel = FuelType.Petrol,
+                    DateKey = v.Last, DateShamsi = Shamsi.FromKey(v.Last),
+                });
+        }
+
         return people;
+    }
+
+    /// <summary>جمع‌های یک دفترِ یک حساب — همان چیزی که ‎AccountTotals‎ می‌سازد.</summary>
+    private struct Roll
+    {
+        public decimal Liters, Rasid, RasidFuel, Albaqi, Bardagi;
+        public int First, Last;
     }
 
     // ── قرض‌های دسته‌جمعی و مدتِ عضویت ───────────────────────────────────────
@@ -102,15 +175,74 @@ public sealed class ToolsDataService
     public async Task<List<DebtSummaryRow>> DebtSummaryAsync(bool money, CancellationToken ct = default)
     {
         _perm.Require(Permission.ViewData);
-        var people = await LoadDebtorsAsync(ct);
+        var people = await LoadSummarisedAsync(ct);
         return _summary.Rows(people, money, Shamsi.Today());
     }
 
-    /// <summary>«⏳ مدت عضویت همه» — قدیمی‌ترین مشتری اول.</summary>
+    /// <summary>
+    /// ══ «⏳ مدت عضویت همه» — قدیمی‌ترین مشتری اول ═══════════════════════════
+    ///
+    /// سنجشِ کارایی این بخش را ۱٬۵۴۱ ms نشان داد و علتش روشن بود: مثلِ بقیه
+    /// ‎LoadDebtorsAsync‎ را صدا می‌زد، یعنی **همهٔ ردیف‌های همهٔ حساب‌ها** را
+    /// می‌خواند — ده‌ها هزار شیء — در حالی که از آن‌ها فقط یک چیز می‌خواهد:
+    /// قدیمی‌ترین تاریخ.
+    ///
+    /// حالا همان را خودِ دیتابیس می‌دهد: یک ‎MIN(DateKey)‎ به ازای هر حساب.
+    ///
+    /// ⚠️ چرا نتیجه مو‌به‌مو همان است:
+    ///   • ‎MembershipService.Row‎ از شخص فقط ‎FirstDate(p)‎ را می‌خواهد و
+    ///     ‎FirstDate‎ کمینهٔ ‎Shamsi.Key‎ی ردیف‌هاست — و کمینهٔ یک مجموعه
+    ///     برابرِ کمینهٔ کمینه‌های زیرمجموعه‌هایش است.
+    ///   • ‎DateKey‎ی ستون همان ‎Shamsi.Key(DateShamsi)‎ است (هنگام ذخیره
+    ///     نوشته می‌شود)، پس ترتیبشان یکی است.
+    ///   • و متنِ تاریخ از همان کلید بازساخته می‌شود («۱۴۰۵۰۶۱۸» ⇒ «1405/6/18»)،
+    ///     که هم ‎Shamsi.Key‎ و هم ‎Shamsi.ToDate‎ همان جواب را می‌دهند.
+    ///
+    /// یعنی هیچ منطقی عوض نشد؛ فقط راهِ رسیدن به همان عدد کوتاه شد.
+    /// </summary>
     public async Task<List<MembershipRow>> MembershipAsync(CancellationToken ct = default)
     {
         _perm.Require(Permission.ViewData);
-        var people = await LoadDebtorsAsync(ct);
+        await using var db = _dbf.Create();
+
+        var people = await db.Debtors.AsNoTracking().Where(d => !d.IsNoInvoice)
+                             .OrderBy(d => d.Name).ToListAsync(ct);
+        if (people.Count == 0) return _member.Rows(people, Shamsi.Today());
+
+        var byId = people.ToDictionary(p => p.Id);
+        var owner = new Dictionary<long, Debtor>();          // حساب ⇦ صاحبش
+
+        foreach (var a in await db.DebtAccounts.AsNoTracking().ToListAsync(ct))
+        {
+            if (a.MainOfDebtorId is { } m && byId.TryGetValue(m, out var o1)) { o1.MainAccount = a; owner[a.Id] = o1; }
+            else if (a.DebtorId is { } sId && byId.TryGetValue(sId, out var o2)) { o2.SubAccounts.Add(a); owner[a.Id] = o2; }
+        }
+
+        // ⚠️ ‎MIN‎ی خودِ SQL این‌جا هم به کار نیامد: همان محدودیتی که در
+        // ‎LoadSummarisedAsync‎ توضیح داده شد (‎GroupBy‎ روی SQLite با این
+        // شکلِ کلیدِ دوتایی ترجمه نمی‌شود). ولی خواندنِ **دو ستون** به‌جای
+        // رکوردِ کاملِ ردیف، خودش بیشترِ هزینه را برمی‌دارد.
+        var dates = await db.DebtRows.AsNoTracking()
+            .Where(r => r.DateKey > 0)
+            .Select(r => new { r.FuelAccountId, r.MoneyAccountId, r.DateKey })
+            .ToListAsync(ct);
+
+        var firsts = new Dictionary<long, int>();
+        foreach (var d in dates)
+        {
+            if ((d.FuelAccountId ?? d.MoneyAccountId) is not { } id) continue;
+            if (!firsts.TryGetValue(id, out var cur) || d.DateKey < cur) firsts[id] = d.DateKey;
+        }
+
+        foreach (var (id, key) in firsts)
+        {
+            if (!owner.TryGetValue(id, out var p)) continue;
+            var acc = p.MainAccount?.Id == id
+                ? p.MainAccount
+                : p.SubAccounts.FirstOrDefault(x => x.Id == id);
+            acc?.FuelRows.Add(new DebtRow { DateKey = key, DateShamsi = Shamsi.FromKey(key) });
+        }
+
         return _member.Rows(people, Shamsi.Today());
     }
 

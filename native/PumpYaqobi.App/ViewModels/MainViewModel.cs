@@ -102,6 +102,12 @@ public sealed partial class MainViewModel : ObservableObject
     /// می‌افتد. پس این‌جا هم با باز شدنِ حسابِ درونِ بخش، هر سه می‌روند و کلِ
     /// پنجره مالِ خودِ حساب می‌شود.
     /// </summary>
+    /// <summary>
+    /// ماشین‌حسابِ شناور — جزوِ بخش‌ها نیست و هر جای برنامه با ‎Ctrl+K‎ یا
+    /// دکمهٔ سربرگ باز می‌شود. خواستهٔ صریحِ صاحب ریپو: «ماشین‌حساب داینامیک».
+    /// </summary>
+    public CalculatorViewModel Calculator { get; } = new();
+
     public bool IsChromeVisible => Content?.IsPageOpen != true;
 
     /// <summary>نوشتهٔ دکمهٔ برگشت — «‹ برگشت به قرض‌داران».</summary>
@@ -455,6 +461,10 @@ public sealed partial class MainViewModel : ObservableObject
         new ProfitSectionViewModel(host),            // ۱۶
         new SettingsSectionViewModel(host),          // ۱۷
         new HistorySectionViewModel(host),           // ۱۸
+        // ⚠️ بعد از هجدهمی، نه وسط: هجده بخشِ اولِ نوار باید به همان ترتیبِ
+        // سایت بمانند، وگرنه ‎Ctrl+Shift+عدد‎ بخشِ دیگری را باز می‌کند.
+        // (‎NavOrderTests‎ همین را گرفت، و درست هم گرفت.)
+        new ChatSectionViewModel(host),              // ۱۹ — پیام‌رسان، مالِ خودِ نیتیو
     };
 
     /// <summary>
