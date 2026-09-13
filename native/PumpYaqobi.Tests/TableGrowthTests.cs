@@ -32,12 +32,76 @@ public class TableGrowthTests
         Regex.Replace(Regex.Replace(s, "<!--.*?-->", "", RegexOptions.Singleline),
                       @"(?m)^\s*(///|//).*$", "");
 
-    // ══ ۱) سقفِ «یک صفحه» رفته است ═══════════════════════════════════════════
+    // ══ ۱) جدول هم‌قدِ ردیف‌هایش می‌شود — ولی نه بیشتر از یک صفحه ═══════════
 
-    /// <summary>دیگر هیچ‌جا ارتفاعِ جدول به یک صفحه بسته نمی‌شود.</summary>
+    /// <summary>
+    /// ══ چرا این آزمون وارونه شد ═══════════════════════════════════════════
+    ///
+    /// این‌جا تا امروز نوشته بود «هیچ سقفی نباید باشد» و جدول تا ۶۰۰ ردیف
+    /// آزادانه بلند می‌شد. ‎ledgerperf‎ اندازه گرفت و معلوم شد همان «آزادی»
+    /// ریشهٔ کندیِ گزارش‌شدهٔ صاحب ریپو بود:
+    ///
+    ///     گاوصندوق با ۲۰۰ ردیف → ۴٬۶۵۲ ms و ۲۰۰ ردیفِ زنده (جدول ۹٬۰۵۱px)
+    ///     گاوصندوق با ۳٬۰۰۰ ردیف → ۹۱۶ ms و ۱۷ ردیفِ زنده (جدول ۸۰۰px)
+    ///
+    /// یعنی هرچه ردیف کمتر، کندتر — چون ‎DataGrid‎ مجازی‌سازی‌اش را از قابِ
+    /// خودش می‌گیرد و قابِ ۹٬۰۵۱ پیکسلی یعنی ساختنِ هر ۲۰۰ ردیف.
+    ///
+    /// پس قاعده عوض شد، و این آزمون همان قاعدهٔ تازه را قفل می‌کند: جدول
+    /// هم‌قدِ ردیف‌هایش می‌شود <b>تا یک صفحه</b>، و از آن‌جا به بعد می‌ایستد.
+    /// خواستهٔ اصلیِ صاحب ریپو («ردیفِ ۴۰ و ۵۰ نباید در کادر گیر کند») سرِ
+    /// جایش است — آن‌ها خیلی زیرِ یک صفحه‌اند.
+    /// </summary>
     [Fact]
-    public void TheOneScreenCeilingIsGone()
-        => Assert.DoesNotContain("CapToOneScreen", Bare(Grid()));
+    public void TheGridStopsGrowingAtOneScreenSoVirtualisationSurvives()
+    {
+        var g = Bare(Grid());
+        Assert.Contains("ScreenHeight()", g);
+        // تنگنا باید در خودِ اندازه‌گیری باشد، نه پس از چیدمان
+        Assert.Contains("return Capped(availableSize, screen)", g);
+        // و «نمی‌دانم» هرگز نباید «بی‌کران» معنی شود
+        Assert.Contains("h > 0 ? h : 900", g);
+    }
+
+    /// <summary>
+    /// ══ پاسِ اولِ اندازه‌گیری همیشه تنگ است ═══════════════════════════════
+    ///
+    /// ستون‌های ‎Width="Auto"‎ پهنایشان را از محتوای ردیف‌ها می‌گیرند؛ تا
+    /// پهنا سفت نشده، هر ردیفِ تازه همهٔ ستون‌ها را دوباره به اندازه‌گیری
+    /// می‌اندازد و هزینه <b>مربعی</b> بالا می‌رود. برای همین «مصارف» که هیچ
+    /// کشویی‌ای ندارد هم با ۲۰۰ ردیف ۱٫۴ ثانیه می‌گرفت.
+    ///
+    /// پس تا ‎SpreadColumns‎ پهناها را سفت نکرده، جدول یک صفحه بیشتر
+    /// اندازه نمی‌گیرد.
+    /// </summary>
+    [Fact]
+    public void ColumnsAreFrozenBeforeTheGridIsAllowedToGrow()
+        => Assert.Contains("if (!_spread) return Capped(", Bare(Grid()));
+
+    /// <summary>
+    /// ══ «هم‌قدِ ردیف‌ها شدن» انتخابی است، و پیش‌فرضش خاموش ═══════════════
+    ///
+    /// چون ساختنِ ردیف گران است (‎ledgerperf‎): گاوصندوق با ۸۰ ردیفِ آزاد
+    /// ۱٬۹۳۳ms، و همان وقتی مجازی‌سازی می‌کند ۱۲ تا ۳۸ms. پس دفترهای ماهانه
+    /// سرِ یک صفحه می‌ایستند و فقط ورق و پارچه — که کوتاه‌اند و خواستهٔ صریحِ
+    /// صاحب ریپو دربارهٔ همان‌ها بود — آزادند.
+    /// </summary>
+    [Fact]
+    public void GrowingToContentIsOptInAndOnlyTheSheetsOptIn()
+    {
+        var g = Bare(Grid());
+        Assert.Contains("GrowsToContentProperty", g);
+        Assert.Contains("!GrowsToContent && want > screen", g);
+
+        // ورق روشنش می‌کند…
+        Assert.Contains("GrowsToContent=\"True\"",
+                        Read("PumpYaqobi.App", "Views", "Sections", "WaraqPageView.axaml"));
+
+        // …و دفترهای ماهانه نه
+        foreach (var v in new[] { "SafeSectionView", "ExchangeSectionView", "ExpenseSectionView" })
+            Assert.DoesNotContain("GrowsToContent",
+                                  Read("PumpYaqobi.App", "Views", "Sections", v + ".axaml"));
+    }
 
     /// <summary>
     /// و تا مرزِ رشد هیچ سقفی روی جدول نمی‌نشیند: نه ‎MaxHeight‎ی هست و نه
@@ -57,16 +121,22 @@ public class TableGrowthTests
     }
 
     /// <summary>
-    /// مرزِ رشد باید آن‌قدر بزرگ باشد که هیچ جدولِ واقعیِ برنامه به آن نرسد —
-    /// وگرنه دوباره همان کادرِ محدود می‌شود. ۵۰ ردیفِ ورق باید خیلی زیرش باشد.
+    /// ══ مرزِ رشد باید بالای «ردیفِ ۴۰ و ۵۰ و ۵۱» باشد ══════════════════════
+    ///
+    /// خواستهٔ صریحِ صاحب ریپو همین بود: آن ردیف‌ها نباید داخلِ کادر گیر کنند.
+    ///
+    /// ⚠️ این‌جا یک‌بار نوشته بود «کمتر از ۵۰۰ نباشد» و همان باعث شد جدولِ
+    /// ۲۰۰ ردیفی آزادانه بلند شود و ۴٫۶ ثانیه طول بکشد (‎ledgerperf‎). مرز
+    /// باید از ۵۱ بالاتر باشد و از چند صد پایین‌تر — نه بیشتر.
     /// </summary>
     [Fact]
-    public void TheGrowLimitIsFarAboveAnyRealTable()
+    public void TheGrowLimitClearsTheRowsTheOwnerNamedButNotHundreds()
     {
         var m = Regex.Match(Grid(), @"GrowRowLimit\s*=\s*(\d+)");
         Assert.True(m.Success, "مرزِ رشد پیدا نشد");
-        Assert.True(int.Parse(m.Groups[1].Value) >= 500,
-                    "مرزِ رشد نباید کمتر از ۵۰۰ ردیف باشد");
+        var limit = int.Parse(m.Groups[1].Value);
+        Assert.True(limit >= 60, "مرزِ رشد باید ردیفِ ۵۱ را با حاشیه در بر بگیرد");
+        Assert.True(limit <= 150, "مرزِ رشدِ چندصدی یعنی برگشتن به همان ۴٫۶ ثانیه");
     }
 
     // ══ ۲) پهنای ستون با تایپ تکان نخورد ════════════════════════════════════
