@@ -71,7 +71,8 @@
 
     <!-- جدول + ردیفِ «جمله»ی ته آن — همتای ‎<tfoot class="xls-foot">‎ی سایت -->
     <Grid RowDefinitions="*,Auto">
-    <c:ExcelGrid Grid.Row="0" ItemsSource="{Binding Rows}" GrowsOnEnter="True" x:CompileBindings="False">
+    <c:ExcelGrid Grid.Row="0" ItemsSource="{Binding Rows}" GrowsOnEnter="True" x:CompileBindings="False"
+                RowDeleteCommand="{Binding $parent[UserControl].DataContext.DeleteRowCommand}">
       <DataGrid.Columns>
         <DataGridTextColumn Header="تاریخ" Binding="{Binding DateShamsi}" Width="Auto" />
         <DataGridTextColumn Header="توضیحات" Binding="{Binding Description}" Width="Auto" MinWidth="150" MaxWidth="320" />
@@ -87,7 +88,7 @@
                    کادر ‎<select class="xls-in">‎ی همیشه‌پیداست. -->
               <ComboBox ItemsSource="{Binding CurrencyOptions}"
                         SelectedItem="{Binding CurrencyText}"
-                        Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14" />
+                        Classes="incell" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
@@ -95,15 +96,20 @@
         <DataGridTextColumn Header="دالر" Binding="{Binding UsdText}" Width="Auto" IsReadOnly="True" />
         <DataGridTextColumn Header="رسید به صرافی" Binding="{Binding RasidText}" Width="Auto" IsReadOnly="True" />
         <DataGridTextColumn Header="بردگی پمپ بنزین ($)" Binding="{Binding BardagiText}" Width="Auto" />
-        <DataGridTemplateColumn Header="" Width="Auto" IsReadOnly="True">
-          <DataGridTemplateColumn.CellTemplate>
-            <DataTemplate>
-              <Button Classes="ghost danger" Content="حذف" Padding="8,3" FontSize="11"
-                      Command="{Binding $parent[UserControl].DataContext.DeleteRowCommand}"
-                      CommandParameter="{Binding}" />
-            </DataTemplate>
-          </DataGridTemplateColumn.CellTemplate>
-        </DataGridTemplateColumn>
+        <!-- ══ الباقی ═════════════════════════════════════════════════════
+             گزارشِ صاحب ریپو: «بخشِ صرافی الباقی نداره.»
+
+             حق داشت و ریشه‌اش هم همین‌جا بود: ردیفِ «جمله» یک خانهٔ
+             «الباقی ($)» می‌ساخت، ولی جدول **ستونی به این نام نداشت**. نوارِ
+             جمله هر خانه را زیرِ ستونِ هم‌نامش می‌نشاند و خانه‌ای که ستون
+             نداشته باشد به دُمِ نوار می‌رود — یعنی عدد ساخته می‌شد و جایی
+             دیده نمی‌شد.
+
+             ⚠️ خانه‌های این ستون در ردیف‌ها عمداً خالی‌اند و فقط «جمله» عدد
+             دارد — همان‌طور که نسخهٔ وب دارد و در ‎ExchangeRowViewModel‎ هم
+             نوشته شده. -->
+        <DataGridTextColumn Header="الباقی ($)" Binding="{Binding BaqiText}"
+                            Width="Auto" IsReadOnly="True" />
       </DataGrid.Columns>
     </c:ExcelGrid>
     <c:TotalsBar Grid.Row="1" ItemsSource="{Binding TotalCells}" IsVisible="{Binding HasTotals}" />

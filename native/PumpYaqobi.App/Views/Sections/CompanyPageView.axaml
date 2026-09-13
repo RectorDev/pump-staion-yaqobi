@@ -51,7 +51,8 @@
 
     <!-- جدول + ردیفِ «جمله»ی همین دفتر (پطرول و دیزل جدا) -->
     <Grid RowDefinitions="*,Auto">
-    <c:ExcelGrid Grid.Row="0" ItemsSource="{Binding Rows}" GrowsOnEnter="True" x:CompileBindings="False">
+    <c:ExcelGrid Grid.Row="0" ItemsSource="{Binding Rows}" GrowsOnEnter="True" x:CompileBindings="False"
+                RowDeleteCommand="{Binding $parent[UserControl].DataContext.DeleteRowCommand}">
       <DataGrid.Columns>
         <DataGridTextColumn Header="تاریخ" Binding="{Binding DateShamsi}" Width="Auto" />
         <DataGridTextColumn Header="شرح"   Binding="{Binding Name}" Width="Auto" MinWidth="150" MaxWidth="320" />
@@ -73,21 +74,12 @@
                    کادر ‎<select class="xls-in">‎ی همیشه‌پیداست. -->
               <ComboBox ItemsSource="{Binding PoulCurrencyOptions}"
                         SelectedItem="{Binding PoulCurrencyText}"
-                        Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14" />
+                        Classes="incell" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
         <DataGridTextColumn Header="الباقیِ افغانی" Binding="{Binding AlbaqiAfnText}" Width="Auto" IsReadOnly="True" />
         <DataGridTextColumn Header="الباقیِ دالر"  Binding="{Binding AlbaqiUsdText}" Width="Auto" IsReadOnly="True" />
-        <DataGridTemplateColumn Header="" Width="Auto" IsReadOnly="True">
-          <DataGridTemplateColumn.CellTemplate>
-            <DataTemplate>
-              <Button Classes="ghost danger" Content="حذف" Padding="8,3" FontSize="11"
-                      Command="{Binding $parent[UserControl].DataContext.DeleteRowCommand}"
-                      CommandParameter="{Binding}" />
-            </DataTemplate>
-          </DataGridTemplateColumn.CellTemplate>
-        </DataGridTemplateColumn>
       </DataGrid.Columns>
     </c:ExcelGrid>
     <c:TotalsBar Grid.Row="1" ItemsSource="{Binding TotalCells}" />

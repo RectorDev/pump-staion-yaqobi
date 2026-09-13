@@ -37,7 +37,8 @@
 
 
     <Grid RowDefinitions="*,Auto,10,*,Auto">
-      <c:ExcelGrid GrowsToContent="True" Grid.Row="0" x:Name="PumpGrid" ItemsSource="{Binding Pumps}" x:CompileBindings="False">
+      <c:ExcelGrid GrowsToContent="True" Grid.Row="0" x:Name="PumpGrid" ItemsSource="{Binding Pumps}" x:CompileBindings="False"
+                  RowDeleteCommand="{Binding $parent[UserControl].DataContext.DeletePumpCommand}">
         <DataGrid.Columns>
           <DataGridTextColumn Header="پایه" Binding="{Binding Num}" Width="Auto" />
           <DataGridTextColumn Header="تاریخ" Binding="{Binding PumpDate}" Width="Auto" />
@@ -52,7 +53,7 @@
               <DataTemplate>
                 <ComboBox ItemsSource="{Binding FuelOptions}"
                           SelectedItem="{Binding FuelText}"
-                          Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14" />
+                          Classes="incell" />
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>
@@ -63,15 +64,6 @@
           <DataGridTextColumn Header="فروش" Binding="{Binding SalesText}" Width="Auto" IsReadOnly="True" />
           <DataGridTextColumn Header="قرضِ پایه" Binding="{Binding DebtText}" Width="Auto" />
           <DataGridTextColumn Header="یادداشت" Binding="{Binding Note}" Width="Auto" MinWidth="150" MaxWidth="320" />
-          <DataGridTemplateColumn Header="" Width="Auto" IsReadOnly="True">
-            <DataGridTemplateColumn.CellTemplate>
-              <DataTemplate>
-                <Button Classes="ghost danger" Content="حذف" Padding="8,3" FontSize="11"
-                        Command="{Binding $parent[UserControl].DataContext.DeletePumpCommand}"
-                        CommandParameter="{Binding}" />
-              </DataTemplate>
-            </DataGridTemplateColumn.CellTemplate>
-          </DataGridTemplateColumn>
         </DataGrid.Columns>
       </c:ExcelGrid>
 
@@ -112,7 +104,7 @@
                 <DataTemplate>
                   <ComboBox ItemsSource="{Binding FuelOptions}"
                             SelectedItem="{Binding FuelText}"
-                            Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14" />
+                            Classes="incell" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -128,7 +120,7 @@
                 <DataTemplate>
                   <ComboBox ItemsSource="{Binding TypeOptions}"
                             SelectedItem="{Binding TypeText}"
-                            Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14" />
+                            Classes="incell" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -140,7 +132,7 @@
                 <DataTemplate>
                   <ComboBox ItemsSource="{Binding UnitOptions}"
                             SelectedItem="{Binding UnitText}"
-                            Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14"
+                            Classes="incell"
                             ToolTip.Tip="ردیفِ قرض به کدام دفترِ حسابِ قرض‌دار برود: واحد تیل یا واحد پول" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
@@ -162,7 +154,7 @@
                 <DataTemplate>
                   <ComboBox ItemsSource="{Binding FuelOptions}"
                             SelectedItem="{Binding FuelText}"
-                            Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14" />
+                            Classes="incell" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -178,7 +170,7 @@
                 <DataTemplate>
                   <ComboBox ItemsSource="{Binding TypeOptions}"
                             SelectedItem="{Binding TypeText}"
-                            Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14" />
+                            Classes="incell" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -190,7 +182,7 @@
                 <DataTemplate>
                   <ComboBox ItemsSource="{Binding UnitOptions}"
                             SelectedItem="{Binding UnitText}"
-                            Margin="4,1" MinHeight="0" Padding="7,2" FontSize="14"
+                            Classes="incell"
                             ToolTip.Tip="ردیفِ قرض به کدام دفترِ حسابِ قرض‌دار برود: واحد تیل یا واحد پول" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
