@@ -70,6 +70,29 @@ public class ExcelGrid : DataGrid
         set => SetValue(GrowsToContentProperty, value);
     }
 
+    /// <summary>
+    /// ══ پهنای ستون‌ها یک بار تنظیم شود، همه‌جا بماند ════════════════════════
+    ///
+    /// گزارشِ صاحب ریپو: «وقتی جدولِ یک ورق را تنظیم می‌کنم، تمامِ جدول‌های
+    /// همهٔ ورق‌ها برابر بشوند… نمی‌شود که هر روز من اندازه‌ها را درست کنم.»
+    ///
+    /// جدولی که این کلید را داشته باشد، پهنای دستیِ کاربر را در تنظیماتِ
+    /// برنامه می‌گذارد و هر جدولِ دیگری با همان کلید — ورقِ فردا هم — همان را
+    /// برمی‌دارد. خالی یعنی «یادت نماند»، پیش‌فرضِ همهٔ جدول‌های دیگر.
+    ///
+    /// ⚠️ کلید باید به **ستون‌ها** بسته باشد نه به دادهٔ ردیف‌ها: دو جدولِ
+    /// تراکنشِ ورق ستون‌های یکسان دارند و عمداً یک کلید می‌گیرند، تا چپ و
+    /// راست هم‌اندازه بمانند.
+    /// </summary>
+    public static readonly StyledProperty<string?> WidthKeyProperty =
+        AvaloniaProperty.Register<ExcelGrid, string?>(nameof(WidthKey));
+
+    public string? WidthKey
+    {
+        get => GetValue(WidthKeyProperty);
+        set => SetValue(WidthKeyProperty, value);
+    }
+
     public event EventHandler? GrowRequested;
 
     public ExcelGrid()
@@ -92,7 +115,7 @@ public class ExcelGrid : DataGrid
         HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
 
         // جای اضافه بینِ ستون‌ها پخش می‌شود، نه در یک ستونِ خالیِ ته جدول
-        LayoutUpdated += (_, _) => { SpreadColumns(); PinOnUserResize(); Settle(); };
+        LayoutUpdated += (_, _) => { SpreadColumns(); PinOnUserResize(); RememberWidths(); Settle(); };
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -143,12 +166,22 @@ public class ExcelGrid : DataGrid
     /// جدولِ ورق با ۲۵ ردیف هم به آن خورد (۳۶۶ ⇒ ۶۴۰ پیکسل به‌جای ۱٬۱۰۰) —
     /// یعنی همان کادری که صاحب ریپو از آن شکایت داشت، فقط بزرگ‌تر.
     ///
-    /// ⚠️ و چرا ۸۰: خواستهٔ صریحِ صاحب ریپو این بود که «شماره‌های ۴۰ و ۵۰ و
-    /// ۵۱ نباید داخلِ یک کادرِ محدود گیر کنند». ۸۰ آن‌ها را با حاشیه در بر
-    /// می‌گیرد و در عینِ حال جلوی ساختنِ صدها ردیف را می‌گیرد. اگر روزی
-    /// بزرگش کردید، ‎ledgerperf‎ همان‌جا قرمز می‌شود.
+    /// ⚠️ چرا از ۸۰ به ۲۵۰ رفت: خواستهٔ تازهٔ صاحب ریپو صریح بود — «ورق جوری
+    /// باشد که سقفِ پایینی نداشته باشد و تا ۱۰۰ تا کادر را به‌راحتی باز کند».
+    /// با ۸۰، ورقِ صدردیفی دقیقاً همان کادرِ محدودی می‌شد که از آن شکایت
+    /// داشت (‎rowcost‎ همین را گرفت: با ۱۰۰ ردیف فقط ۱۹ ردیف زنده می‌ماند).
+    ///
+    /// و چرا حالا از پسش برمی‌آید: ریشهٔ کندی شمارِ ردیف نبود، **ساختنِ
+    /// دوبارهٔ کلِ صفحه** بود. با زنده ماندنِ ‎WaraqPageViewModel‎ باز کردنِ
+    /// ورقِ ۸۰ ردیفی از ۱٬۵۷۱ به ۸۴ میلی‌ثانیه رسید — پس جا برای ردیفِ
+    /// بیشتر باز شد.
+    ///
+    /// ⚠️ ولی سقف حذف نشد و نباید بشود: بی آن، یک دفترِ صدهزارردیفی همهٔ
+    /// ردیف‌هایش را واقعاً می‌سازد و برنامه قفل می‌شود (‎gridperf‎ همین را با
+    /// یک میلیون ردیف می‌سنجد). این عدد فقط آن‌قدر بالا رفت که هیچ ورقِ
+    /// واقعی به آن نرسد.
     /// </summary>
-    public const int GrowRowLimit = 80;
+    public const int GrowRowLimit = 250;
 
     // ══════════════════════════════════════════════════════════════════════
     //  ⚠️ چرا تنگنا هست — با عدد، نه با حدس
@@ -218,8 +251,16 @@ public class ExcelGrid : DataGrid
     /// ⚠️ و تنگنا باید **پیش از** اندازه‌گیری اعمال شود، نه پس از چیدمان:
     /// وگرنه همان پاسِ اول با بلندیِ بی‌کران انجام شده است.
     /// </summary>
+    /// <summary>
+    /// شمارنده‌های سنجش — ‎waraqperf‎ رویشان حساب می‌کند. بی این‌ها یک بار
+    /// دو ساعت دنبالِ «چرا دوازده پاسِ چیدمان» گشتیم، در حالی که خودِ جدول
+    /// فقط دو بار اندازه گرفته می‌شد.
+    /// </summary>
+    public static int DiagMeasure, DiagSettle;
+
     protected override Size MeasureOverride(Size availableSize)
     {
+        DiagMeasure++;
         var rows = RowCount();
         var screen = ScreenHeight();
 
@@ -300,6 +341,7 @@ public class ExcelGrid : DataGrid
 
         if (VerticalBar is not { IsVisible: true } vbar || vbar.Maximum <= 1) return;
 
+        DiagSettle++;
         _pad += vbar.Maximum + 2;
         _padRows = rows;
         InvalidateMeasure();
@@ -556,16 +598,74 @@ public class ExcelGrid : DataGrid
         // ستون‌ها هم مثلِ قبل کار می‌کند.
         var spare = room - natural.Sum() >= 8;
 
+        // ══ پهنای ذخیره‌شده مقدم است ═════════════════════════════════════════
+        // اگر کاربر یک بار این جدول را تنظیم کرده، همان می‌نشیند — نه پهنای
+        // طبیعیِ محتوای امروز. پس ورقِ فردا هم همان‌قدر است.
+        var saved = Saved(cols.Count);
+
         for (var i = 0; i < cols.Count; i++)
         {
             cols[i].MinWidth = FloorWidth;
             cols[i].MaxWidth = double.PositiveInfinity;
-            cols[i].Width = spare
-                ? new DataGridLength(natural[i], DataGridLengthUnitType.Star)
-                : new DataGridLength(natural[i], DataGridLengthUnitType.Pixel);
+            cols[i].Width = saved is not null
+                ? new DataGridLength(saved[i], DataGridLengthUnitType.Pixel)
+                : spare
+                    ? new DataGridLength(natural[i], DataGridLengthUnitType.Star)
+                    : new DataGridLength(natural[i], DataGridLengthUnitType.Pixel);
         }
 
+        // پهنای ذخیره‌شده خودش پیکسلی است، پس جدول از همین حالا «سنجاق‌شده»
+        // است و ‎PinOnUserResize‎ نباید دوباره رویش حساب کند.
+        if (saved is not null) _pinned = true;
+
         _spread = true;
+    }
+
+    /// <summary>پهنای ذخیره‌شدهٔ همین جدول — اگر بود و شمارِ ستون‌ها هم خورد.</summary>
+    private double[]? Saved(int count)
+    {
+        var key = WidthKey;
+        if (string.IsNullOrWhiteSpace(key)) return null;
+
+        // ⚠️ یک بار خوانده می‌شود و همان می‌ماند: این تابع در مسیرِ چیدمان
+        // است و خواندنِ فایل در هر پاس یعنی همان کندی‌ای که تازه درستش
+        // کرده‌ایم.
+        if (!_savedRead)
+        {
+            _savedRead = true;
+            _saved = Services.AppSettings.LoadColumnWidths(key);
+        }
+
+        // شمارِ ستون‌ها عوض شده (ستونی اضافه یا کم شده) ⇒ عددهای کهنه
+        // به‌درد نمی‌خورند و به پهنای طبیعی برمی‌گردیم.
+        return _saved is { } w && w.Length == count && w.All(x => x >= FloorWidth) ? w : null;
+    }
+
+    private bool _savedRead;
+    private double[]? _saved;
+
+    /// <summary>
+    /// کاربر ستونی را کشید ⇒ پهنای همهٔ ستون‌ها برای همیشه نوشته می‌شود.
+    ///
+    /// ⚠️ با تأخیر، نه همان لحظه: کشیدنِ ستون ده‌ها رویدادِ پشتِ سرِ هم
+    /// می‌دهد و نوشتنِ فایل در هر کدام، کشیدن را لق می‌کند.
+    /// </summary>
+    private void RememberWidths()
+    {
+        if (string.IsNullOrWhiteSpace(WidthKey)) return;
+
+        var cols = Columns.Where(c => c.IsVisible).ToList();
+        if (cols.Count == 0) return;
+        var w = cols.Select(c => c.ActualWidth).ToArray();
+        if (w.Any(x => double.IsNaN(x) || x <= 0)) return;
+        if (_saved is { } old && old.Length == w.Length
+            && old.Zip(w, (a, b) => Math.Abs(a - b) < 0.5).All(x => x)) return;
+
+        _saved = w;
+        _savedRead = true;
+        var key = WidthKey!;
+        Dispatcher.UIThread.Post(() => Services.AppSettings.SaveColumnWidths(key, w),
+                                 DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -600,6 +700,7 @@ public class ExcelGrid : DataGrid
             c.Width = new DataGridLength(c.ActualWidth, DataGridLengthUnitType.Pixel);
 
         _pinned = true;
+        RememberWidths();
     }
 
     private bool _pinned;
