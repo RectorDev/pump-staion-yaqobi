@@ -72,6 +72,9 @@ internal static class Program
         // ══ «بازگشت به صفحهٔ اصلی کند است» — با دفترِ چندساله ═══════════════
         //     dotnet run --project PumpYaqobi.UiTests -- dashperf
         if (outDir.Equals("dashperf", StringComparison.OrdinalIgnoreCase)) return DashPerf.Run();
+        // ══ عکسِ صفحهٔ چاپ و «تنظیمِ ورق» با گزارشِ واقعی ══════════════════════
+        //     dotnet run --project PumpYaqobi.UiTests -- printshot <پوشه>
+        if (args.Length > 1 && args[0].Equals("printshot", StringComparison.OrdinalIgnoreCase)) return PrintShot.Run(args[1]);
         if (args.Length > 1 && args[0].Equals("cellshot", StringComparison.OrdinalIgnoreCase)) return CellShot.Run(args[1]);
         // ══ سه صفحهٔ بخشِ فاکتور، بلند و کامل ═══════════════════════════════
         //     dotnet run --project PumpYaqobi.UiTests -- invshot <پوشه>
@@ -152,6 +155,24 @@ internal static class Program
             }
         }
 
+        // ۴٫۶) صفحهٔ جزئیاتِ «زیان ناشی از افزایش قیمت» — دو جدولِ برداشت‌ها و فاکتورها
+        if (vm.Sections.FirstOrDefault(s => s.Id == "debt") is { } debtSec
+            && debtSec.SubSections.OfType<PumpYaqobi.App.ViewModels.Sections.PriceLossSectionViewModel>().FirstOrDefault() is { } pl)
+        {
+            Wait(win, vm.GoAsync(debtSec));
+            debtSec.OpenSub = pl;
+            Pump(win);
+            Dispatcher.UIThread.RunJobs();
+            Pump(win);
+            pl.OpenRowCommand.Execute(pl.Rows.FirstOrDefault());
+            Pump(win);
+            Dispatcher.UIThread.RunJobs();
+            Pump(win);
+            Shot(win, Path.Combine(outDir, $"{++n:00}-priceloss-person.png"));
+            pl.ClosePerson();
+            debtSec.OpenSub = null;
+        }
+
         // ۵) صفحهٔ حسابِ یک قرض‌دار — مهم‌ترین صفحهٔ برنامه
         if (vm.Sections.FirstOrDefault(s => s.Id == "debt") is PumpYaqobi.App.ViewModels.Sections.DebtSectionViewModel debt)
         {
@@ -202,6 +223,14 @@ internal static class Program
             is PumpYaqobi.App.ViewModels.Sections.AmanatSectionViewModel am)
         {
             Wait(win, vm.GoAsync(am));
+            Pump(win);
+            // «⚙️ تنظیمات مدیر» — کادرِ ضریب‌ها باز، عکس، بسته
+            am.ToggleSettingsCommand.Execute(null);
+            Pump(win);
+            Dispatcher.UIThread.RunJobs();
+            Pump(win);
+            Shot(win, Path.Combine(outDir, "24-amanat-settings.png"));
+            am.ToggleSettingsCommand.Execute(null);
             Pump(win);
             am.OpenCommand.Execute(am.Cards.FirstOrDefault());
             Pump(win);

@@ -6,26 +6,48 @@ namespace PumpYaqobi.Reporting.Pdf;
 public enum PageOrientation { Auto = 0, Portrait = 1, Landscape = 2 }
 
 /// <summary>کدام ورق‌ها چاپ شوند — همان کادرِ اولِ «تنظیمات»ِ صفحهٔ چاپ.</summary>
-public enum PrintWhat { All = 0, Current = 1, Range = 2 }
+/// <summary>
+/// ‎Pages‎: ورق‌های دلخواه — «۱،۳» یا «2,4-6» — همان کادرِ «Pages» چاپِ اکسل و
+/// ویندوز. خواستهٔ صاحب ریپو: «از سه ورق فقط ورقِ دوم را بگیرم، یا یک و سه
+/// را و سومی را نه.»
+/// </summary>
+public enum PrintWhat { All = 0, Current = 1, Range = 2, Pages = 3 }
 
 /// <summary>
-/// مقیاسِ چاپ — همان کادرِ «مقیاس».
+/// مقیاسِ چاپ — همان کادرِ «مقیاس»، با همان شش حالتِ سایت (‎SCAL‎).
 ///
-/// ⚠️ چهار حالت است نه شش‌تای نسخهٔ وب، و دلیلش این است که موتورِ سندِ این
-/// برنامه با مرورگر فرق دارد: آن‌جا جدولِ HTML از عرضِ ورق بیرون می‌زد و
-/// «جا دادن ستون‌ها» کارِ واقعی می‌کرد؛ این‌جا ستون‌ها خودشان تا عرضِ ورق
-/// چیده می‌شوند، پس آن حالت همان ‎None‎ است و ساختنِ یک گزینهٔ قلابی برایش
-/// فقط کاربر را گمراه می‌کرد.
+/// ⚠️ سه حالتِ «جا دادن» با **شمردنِ ورقِ واقعی** پیدا می‌شوند، نه با یک ضریبِ
+/// حدسی: سند در چند مقیاس واقعاً چیده می‌شود و کوچک‌ترین کوچک‌شدنی که ورق‌ها
+/// را به عددِ خواسته می‌رساند برداشته می‌شود — همان ‎biggestScaleFor‎ی
+/// سایت. چرایی‌اش آن‌جا نوشته شده: سطرها از وسط نصف نمی‌شوند، پس «جمعِ
+/// بلندیِ محتوا ÷ بلندیِ ورق» گاهی ۱٫۹ ورق درمی‌آید در حالی که روی کاغذ ۲
+/// ورق است.
 /// </summary>
 public enum PrintScale
 {
     /// <summary>در اندازهٔ واقعیِ خودش.</summary>
     None = 0,
-    /// <summary>هر ورق تا جایی کوچک می‌شود که کاملاً در یک صفحه بنشیند.</summary>
+    /// <summary>
+    /// کلِ گزارش در یک ورق (همان ‎fitAll‎). ⚠️ نامِ قدیمی نگه داشته شده تا
+    /// تنظیمِ ذخیره‌شدهٔ کاربر با همان عدد خوانده شود.
+    /// </summary>
     FitPage = 1,
     /// <summary>درصدِ دستیِ کاربر.</summary>
     Custom = 2,
+    /// <summary>
+    /// همهٔ ستون‌ها در پهنای یک ورق (‎fitCols‎) — پیش‌فرضِ سایت.
+    /// در این موتور جدول‌ها خودشان تا پهنای ورق چیده می‌شوند، پس این حالت
+    /// همان «بدون مقیاس» است؛ سرِ جایش مانده تا کشو با سایت یکی باشد.
+    /// </summary>
+    FitColumns = 3,
+    /// <summary>همهٔ سطرها در بلندیِ یک ورق (‎fitRows‎).</summary>
+    FitRows = 4,
+    /// <summary>در N ورقِ پهنا × M ورقِ بلندا (‎fitPages‎).</summary>
+    FitPages = 5,
 }
+
+/// <summary>رنگِ چاپ — همان کشوی «رنگ» در زبانهٔ «جدول».</summary>
+public enum PrintColor { Color = 0, Gray = 1, BlackWhite = 2 }
 
 /// <summary>
 /// ══ تنظیمِ ورق — «کارگاه چاپ» ══════════════════════════════════════════════
@@ -84,6 +106,18 @@ public sealed record PageSetup
     public decimal MarginLeft { get; init; } = 6.4m;
     public decimal MarginRight { get; init; } = 6.4m;
 
+    /// <summary>فاصلهٔ سربرگ از لبهٔ بالای ورق — همان ‎mh‎ی سایت.</summary>
+    public decimal MarginHeader { get; init; } = 7.6m;
+
+    /// <summary>فاصلهٔ پاورقی از لبهٔ پایینِ ورق — همان ‎mf‎.</summary>
+    public decimal MarginFooter { get; init; } = 7.6m;
+
+    /// <summary>وسط‌چین روی ورق — افقی (‎centerH‎).</summary>
+    public bool CenterH { get; init; }
+
+    /// <summary>وسط‌چین روی ورق — عمودی (‎centerV‎).</summary>
+    public bool CenterV { get; init; }
+
     // ── سربرگ و پاورقیِ سه‌قسمتی ──────────────────────────────────────────
     public string HeaderLeft { get; init; } = "";
     public string HeaderCenter { get; init; } = "";
@@ -102,10 +136,36 @@ public sealed record PageSetup
     public int Dpi { get; init; } = 144;
 
     // ── مقیاس ─────────────────────────────────────────────────────────────
-    public PrintScale Scale { get; init; } = PrintScale.None;
+    //
+    // پیش‌فرض همان پیش‌فرضِ سایت است (‎scaleMode:'fitCols'‎)؛ چرایی‌اش در
+    // ‎PrintScale.FitColumns‎.
+    public PrintScale Scale { get; init; } = PrintScale.FitColumns;
 
     /// <summary>درصدِ «مقیاسِ دلخواه» — ۱۰ تا ۴۰۰.</summary>
     public int ScalePercent { get; init; } = 100;
+
+    /// <summary>«جا دادن در … ورق پهنا» — ‎fitW‎.</summary>
+    public int FitWidthPages { get; init; } = 1;
+
+    /// <summary>«… در … ورق بلندا» — ‎fitH‎.</summary>
+    public int FitHeightPages { get; init; } = 1;
+
+    // ── زبانهٔ «جدول» ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// سرستونِ جدول در بالای همهٔ ورق‌ها تکرار شود؟
+    ///
+    /// ⚠️ پیش‌فرض **خاموش** — خواستهٔ صریحِ صاحب ریپو برای همهٔ پی‌دی‌اف‌ها:
+    /// «چرا آن سربرگِ جدول در صفحهٔ دیگر هم هست؟ نباید باشد، گیج‌کننده
+    /// می‌شود.» همان پیش‌فرضِ ‎repeatHead:false‎ی سایت.
+    /// </summary>
+    public bool RepeatHead { get; init; }
+
+    /// <summary>خطوطِ جدول — ‎gridlines‎.</summary>
+    public bool Gridlines { get; init; } = true;
+
+    /// <summary>رنگی، خاکستری یا سیاه‌وسفید — ‎color‎.</summary>
+    public PrintColor Color { get; init; } = PrintColor.Color;
 
     // ── کارِ چاپ ───────────────────────────────────────────────────────────
     //
@@ -123,6 +183,9 @@ public sealed record PageSetup
     public int From { get; init; } = 1;
     public int To { get; init; } = 1;
 
+    /// <summary>فهرستِ ورق‌های دلخواه در حالتِ ‎Pages‎ — «۱،۳» یا «2,4-6».</summary>
+    public string PagesText { get; init; } = "";
+
     public static readonly PageSetup Default = new();
 
     /// <summary>
@@ -134,8 +197,21 @@ public sealed record PageSetup
     /// </summary>
     public PageSetup LayoutOnly() => this with
     {
-        Copies = 1, Collate = true, What = PrintWhat.All, From = 1, To = 1,
+        Copies = 1, Collate = true, What = PrintWhat.All, From = 1, To = 1, PagesText = "",
     };
+
+    /// <summary>
+    /// همین تنظیم، ولی مقیاسش عددِ صریح — برای ساختنِ سند پس از آن‌که
+    /// «جا دادن» حساب شد. سند فقط دو حالت را می‌فهمد: بی‌مقیاس و درصد.
+    /// </summary>
+    public PageSetup WithResolvedScale(int percent) => this with
+    {
+        Scale = percent == 100 ? PrintScale.None : PrintScale.Custom,
+        ScalePercent = Math.Clamp(percent, 10, 400),
+    };
+
+    /// <summary>حالت‌هایی که پیش از ساختنِ سند باید با شمردنِ ورق حل شوند.</summary>
+    public bool NeedsScaleSolve => Scale is PrintScale.FitPage or PrintScale.FitRows or PrintScale.FitPages;
 
     /// <summary>اندازهٔ نهاییِ ورق، با درنظر گرفتنِ ایستاده/خوابیده.</summary>
     public (decimal W, decimal H) SizeMm(bool naturalLandscape)
@@ -163,6 +239,17 @@ public sealed record PageSetup
         MarginPreset != "custom" && MarginPresets.TryGetValue(MarginPreset, out var m)
             ? m
             : new MarginSet(MarginTop, MarginBottom, MarginLeft, MarginRight);
+
+    /// <summary>
+    /// جای سربرگ و پاورقی — هیچ‌وقت بیرونِ حاشیهٔ خودشان نمی‌روند، مثلِ
+    /// ‎geo()‎ی سایت (‎mh: Math.min(S.mh, mt)‎).
+    /// </summary>
+    public (decimal Header, decimal Footer) BandOffsets()
+    {
+        var m = Margins();
+        return (Math.Min(Math.Max(0m, MarginHeader), m.Top),
+                Math.Min(Math.Max(0m, MarginFooter), m.Bottom));
+    }
 
     /// <summary>پیش‌فرضِ عددهای حاشیه وقتی کاربر یک آمادهٔ دیگر را برمی‌دارد.</summary>
     public PageSetup WithMarginPreset(string preset)
@@ -212,6 +299,8 @@ public static class PrintJob
             to = Math.Clamp(s.To, 1, pageCount);
             if (to < from) (from, to) = (to, from);
         }
+        else if (s.What == PrintWhat.Pages)
+            return ParsePages(s.PagesText, pageCount);
 
         var list = new List<int>(to - from + 1);
         for (var i = from; i <= to; i++) list.Add(i);
@@ -231,6 +320,57 @@ public static class PrintJob
         else
             foreach (var p in picked) for (var c = 0; c < copies; c++) order.Add(p);
         return order;
+    }
+
+    /// <summary>
+    /// «۱،۳» / «2,4-6» / «۳-۱» → شماره‌های ورق، هر کدام یک‌بار، به ترتیب و
+    /// فقط آن‌هایی که واقعاً هستند. رقمِ فارسی، ویرگولِ فارسی، فاصله و «تا» هم
+    /// پذیرفته می‌شوند؛ تکهٔ ناخوانا نادیده می‌ماند، نه اینکه همه را خراب کند.
+    /// </summary>
+    public static IReadOnlyList<int> ParsePages(string? text, int pageCount)
+    {
+        var set = new SortedSet<int>();
+        if (pageCount <= 0 || string.IsNullOrWhiteSpace(text)) return Array.Empty<int>();
+        var t = PersianText.ToEn(text!)
+            .Replace('،', ',').Replace('؛', ',').Replace(';', ',')
+            .Replace("تا", "-").Replace('–', '-').Replace('—', '-').Replace("..", "-");
+        foreach (var raw in t.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var piece = raw.Replace(" ", "");
+            var dash = piece.IndexOf('-');
+            if (dash < 0)
+            {
+                if (int.TryParse(piece, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+                    && n >= 1 && n <= pageCount) set.Add(n);
+                continue;
+            }
+            var aTxt = piece[..dash]; var bTxt = piece[(dash + 1)..];
+            // «-۳» یعنی از اول تا ۳، «۳-» یعنی از ۳ تا آخر — مثلِ کادرِ چاپِ ویندوز
+            var a = aTxt.Length == 0 ? 1 : int.TryParse(aTxt, NumberStyles.Integer, CultureInfo.InvariantCulture, out var x) ? x : -1;
+            var b = bTxt.Length == 0 ? pageCount : int.TryParse(bTxt, NumberStyles.Integer, CultureInfo.InvariantCulture, out var y) ? y : -1;
+            if (a < 0 || b < 0) continue;
+            if (b < a) (a, b) = (b, a);
+            a = Math.Max(1, a); b = Math.Min(pageCount, b);
+            for (var i = a; i <= b; i++) set.Add(i);
+        }
+        return set.ToList();
+    }
+
+    /// <summary>شماره‌های ورق → «۱،۳-۵» — کوتاه‌ترین متنی که همان فهرست را می‌دهد.</summary>
+    public static string FormatPages(IEnumerable<int> pages)
+    {
+        var list = pages.Distinct().OrderBy(x => x).ToList();
+        var parts = new List<string>();
+        for (var i = 0; i < list.Count;)
+        {
+            var j = i;
+            while (j + 1 < list.Count && list[j + 1] == list[j] + 1) j++;
+            parts.Add(j - i >= 2 ? PersianText.Num(list[i]) + "-" + PersianText.Num(list[j])
+                    : j == i ? PersianText.Num(list[i])
+                    : PersianText.Num(list[i]) + "،" + PersianText.Num(list[j]));
+            i = j + 1;
+        }
+        return string.Join("،", parts);
     }
 
     /// <summary>همهٔ ورق‌ها، یک‌بار، به ترتیب؟ آن‌وقت فایلِ اصلی خودش کافی است.</summary>
