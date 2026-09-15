@@ -1,6 +1,9 @@
 using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia;
+using Avalonia.VisualTree;
 using Avalonia.Markup.Xaml;
 using PumpYaqobi.App.ViewModels.Sections;
 
@@ -13,6 +16,20 @@ public partial class PersonView : UserControl
         AvaloniaXamlLoader.Load(this);
         DataContextChanged += (_, _) => Follow();
         Follow();
+
+        // ══ کلیک بیرونِ کادرِ رسیدِ سربرگ، فوکوس را ببرد ══════════════════════
+        // گزارشِ صاحب ریپو: «تو سربرگ رسید می‌زنم، بعد هر جای صفحه کلیک کنم از
+        // اون کادر خارج نمی‌شه.» آوالونیا با کلیک روی چیزی که فوکوس‌پذیر نیست
+        // (زمینهٔ صفحه، نوشته‌ها) فوکوس را از کادرِ قبلی نمی‌گیرد، پس ‎LostFocus‎
+        // هیچ‌وقت شلیک نمی‌شد و عدد هم ثبت نمی‌شد. این‌جا خودمان می‌گیریم.
+        AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (TopLevel.GetTopLevel(this) is not { } top) return;
+            if (top.FocusManager?.GetFocusedElement() is not TextBox tb) return;
+            if (!tb.Classes.Contains("fsv")) return;
+            if (e.Source is Visual v && (ReferenceEquals(v, tb) || tb.IsVisualAncestorOf(v))) return;
+            top.FocusManager?.ClearFocus();
+        }, RoutingStrategies.Tunnel);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -89,9 +106,30 @@ public partial class PersonView : UserControl
     /// بی این، کاربر روی «۵٬۰۰۰» می‌نوشت «۲٬۰۰۰» و جمع ۷٬۰۰۰ می‌شد — همان
     /// چیزی که در سایت هم با پاک شدنِ کادر جلویش گرفته شده.
     /// </summary>
+    private string? _rasidBefore;
+
     private void RasidBoxFocus(object? sender, GotFocusEventArgs e)
     {
-        if (sender is TextBox tb) tb.Text = "";
+        if (sender is not TextBox tb) return;
+        _rasidBefore = tb.Text;
+        tb.Text = "";
+    }
+
+    /// <summary>
+    /// خروجِ بی‌نوشتن: کادر را به همان جمعی برگردان که پیش از فوکوس نشان می‌داد.
+    /// ⚠️ اتصال این را خودش نمی‌کند: مقدارِ منبع («۷۴۵») از دیدِ اتصال عوض نشده،
+    /// پس چیزی به کادر نمی‌فرستد و کادر با «»ی خودمان خالی می‌ماند — گزارشِ صاحب
+    /// ریپو: «چیزی نشون نمی‌ده مگه از حساب بیرون بشم و دوباره بیام». عددِ تازه
+    /// را اتصال با ‎LostFocus‎ می‌نویسد؛ این‌جا فقط حالتِ خالی برمی‌گردد.
+    /// </summary>
+    private void RasidBoxLost(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox tb) return;
+        var was = _rasidBefore;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (string.IsNullOrWhiteSpace(tb.Text) && !tb.IsFocused) tb.Text = was ?? "";
+        }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     /// <summary>
