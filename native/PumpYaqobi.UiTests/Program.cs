@@ -68,6 +68,15 @@ internal static class Program
         if (outDir.Equals("rowcost", StringComparison.OrdinalIgnoreCase)) return RowCost.Run();
         if (outDir.Equals("vanish", StringComparison.OrdinalIgnoreCase)) return VanishProbe.Run();
         if (outDir.Equals("verify", StringComparison.OrdinalIgnoreCase)) return VerifyProbe.Run();
+        // ══ «عوض کردنِ تم خط‌ها را کج می‌کند؟» ══════════════════════════════
+        //     dotnet run --project PumpYaqobi.UiTests -- themeflip
+        if (outDir.Equals("themeflip", StringComparison.OrdinalIgnoreCase)) return ThemeFlipAudit.Run();
+        if (args.Length > 1 && args[0].Equals("themediff", StringComparison.OrdinalIgnoreCase))
+            return ThemeFlipAudit.RunDiff(args[1], args.Length > 2 ? args[2] : null);
+        // ══ «پنج سال استفاده از اپ» — کندی و باگ با دفترِ پنج‌ساله ═══════════
+        //     dotnet run --project PumpYaqobi.UiTests -- years
+        if (outDir.Equals("years", StringComparison.OrdinalIgnoreCase)) return YearsAudit.Run();
+        if (outDir.Equals("plprof", StringComparison.OrdinalIgnoreCase)) return YearsAudit.RunPriceLossProfile();
         // ══ «پردهٔ لودینگ کارش را می‌کند؟» ═════════════════════════════════
         //     dotnet run --project PumpYaqobi.UiTests -- warm
         if (outDir.Equals("warm", StringComparison.OrdinalIgnoreCase)) return WarmAudit.Run();
