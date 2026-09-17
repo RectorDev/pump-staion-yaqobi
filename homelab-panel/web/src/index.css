@@ -170,6 +170,15 @@ a,
     @apply inline-flex min-h-6 items-center gap-1 rounded-full border border-transparent px-2 py-0.5 text-[11px] font-medium;
   }
 
+  .nav-active {
+    background: color-mix(in srgb, var(--series-1) 10%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--series-1) 16%, transparent);
+  }
+
+  .topbar-glass {
+    background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  }
+
   .page-shell {
     @apply mx-auto w-full max-w-[1600px];
   }
