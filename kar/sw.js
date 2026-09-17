@@ -13,9 +13,9 @@
 //  وگرنه گوشیِ کارمند نسخهٔ قدیمی را نگه می‌دارد و فایلِ تازه هرگز
 //  نمی‌رسد. cloud.js اضافه شد و جوابِ درخواستِ ناموفق عوض شد، پس v3؛
 //  صفحهٔ «کدِ پمپ» و جداسازیِ هر پمپ، پس v4؛ دو درِ «حساب‌ها/کارمندان»، پس v5؛
-//  update.js اضافه شد، پس v6.
-var CACHE = 'pump-kar-v6';
-var SHELL = ['./', './index.html', './app.js', './cloud.js', './update.js', './manifest.json'];
+//  update.js اضافه شد، پس v6؛ Tailwind محلیِ مشترک، پس v7.
+var CACHE = 'pump-kar-v7';
+var SHELL = ['./', './index.html', './app.js', './cloud.js', './update.js', './manifest.json', '../assets/static-ui.css'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); })
