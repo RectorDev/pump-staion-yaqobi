@@ -1,0 +1,77 @@
+name: UI validation
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'app.html'
+      - 'kar/**'
+      - 'payam/**'
+      - 'view/**'
+      - 'webvault-manager/**'
+      - 'styles/**'
+      - 'tailwind.static.config.js'
+      - 'tools/inject-static-ui.mjs'
+      - 'homelab-panel/web/**'
+      - '.github/workflows/ui-check.yml'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-tailwind:
+    name: Static PWA Tailwind build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate injection script
+        run: node --check tools/inject-static-ui.mjs
+      - name: Compile local Tailwind bundle
+        run: |
+          npm i --no-save --no-package-lock tailwindcss@3.4.17
+          mkdir -p assets
+          npx tailwindcss \
+            -c tailwind.static.config.js \
+            -i styles/static-ui.css \
+            -o assets/static-ui.css \
+            --minify
+          test -s assets/static-ui.css
+      - name: Inject and verify all static surfaces
+        run: |
+          node tools/inject-static-ui.mjs
+          grep -q 'data-ui="main"' index.html
+          grep -q 'data-ui="download"' app.html
+          grep -q 'data-ui="kar"' kar/index.html
+          grep -q 'data-ui="payam"' payam/index.html
+          grep -q 'data-ui="view"' view/index.html
+          grep -q 'data-ui="webvault"' webvault-manager/webvault.html
+          for f in index.html app.html kar/index.html payam/index.html view/index.html webvault-manager/webvault.html; do
+            test "$(grep -o 'data-tailwind-ui="true"' "$f" | wc -l)" -eq 1
+          done
+      - name: Verify PWA offline references
+        run: |
+          grep -q '../assets/static-ui.css' kar/sw.js
+          grep -q '../assets/static-ui.css' payam/sw.js
+
+  panel:
+    name: React panel production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: homelab-panel/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: homelab-panel/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Production build
+        run: npm run build
