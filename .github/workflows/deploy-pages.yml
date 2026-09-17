@@ -40,6 +40,22 @@ jobs:
       - name: حذف سرویس دستیار پشتیبانی از خروجی سایت
         run: rm -rf ai-support
 
+      # ── Tailwind برای صفحه‌های مستقل وب ───────────────────────────────────
+      # فایل‌های تک‌صفحه‌ای قدیمی رفتار و قراردادهای JS حساسی دارند. به‌جای
+      # بازنویسی HTML، یک لایهٔ Tailwind کامپایل‌شده و scopeشده روی خروجی تزریق
+      # می‌شود. این فایل محلی است و در حالت آفلاین هم کار می‌کند؛ CDN نداریم.
+      - name: ساخت Tailwind UI برای صفحه‌های وب
+        run: |
+          npm i --no-save --no-package-lock tailwindcss@3.4.17
+          mkdir -p assets
+          npx tailwindcss \
+            -c tailwind.static.config.js \
+            -i styles/static-ui.css \
+            -o assets/static-ui.css \
+            --minify
+          node tools/inject-static-ui.mjs
+          test -s assets/static-ui.css
+
       # ── فایل‌های نصب را داخلِ خودِ سایت می‌گذاریم ──────────────────────────
       # خواستهٔ صاحب برنامه: با زدنِ دکمهٔ دانلود، کاربر نباید به گیت‌هاب یا هیچ
       # صفحهٔ دیگری برود؛ فایل باید مستقیم از خودِ سایت بیاید. پس آخرین فایل نصبِ
@@ -91,8 +107,6 @@ jobs:
                       os.remove(dest)
 
           grab('kar-latest', 'version.txt', 'kar-apk-version.txt')
-          # فایلِ نصبِ اپِ کارمندان کنارِ سایت هم گذاشته می‌شود تا لینکِ
-          # دادنی به کارمند روی دامنهٔ خودِ پمپ باشد (KarLink.ApkUrl).
           grab('kar-latest', '.apk', 'PumpYaqobiKar.apk')
           grab('android-latest', '.apk', 'PumpYaqobi.apk')
           grab('android-latest', 'version.txt', 'apk-version.txt')
@@ -102,9 +116,6 @@ jobs:
           PY
 
       # ── نسخهٔ سایت به‌صورت خودکار ─────────────────────────────────────────
-      # version.json از روی همان APP_VERSION داخل index.html ساخته می‌شود؛ هیچ
-      # جای دیگری دستی تنظیم نمی‌شود. برنامه (وب، اندروید، ویندوز و آیفون) همین
-      # فایل را می‌خواند و با هر انتشارِ تازه، خودش را به‌روز می‌کند.
       - name: ساختِ version.json (نسخهٔ خودکار)
         run: |
           python3 - <<'PY'
@@ -118,9 +129,6 @@ jobs:
               return {'url': './' + path.replace(os.sep, '/'),
                       'size': os.path.getsize(path),
                       'name': os.path.basename(path)}
-          # نسخهٔ خودِ هر فایلِ نصب (کنارِ خودش منتشر می‌شود). اگر با نسخهٔ
-          # سایت یکی نباشد، صفحهٔ دریافت همان‌جا می‌گوید — تا دوباره پیش نیاید که
-          # کاربر فایلِ نصبِ ده‌ها نسخه عقب‌تر را بگیرد.
           def side_version(name):
               try:
                   return open('downloads/' + name, encoding='utf-8').read().strip()
@@ -147,11 +155,6 @@ jobs:
           print(json.dumps(data, ensure_ascii=False))
           PY
       # ── نسخهٔ اپِ کارمندان (kar/version.json) ──────────────────────────────
-      # خواستهٔ صاحب ریپو: «برنامه و سایت خودشان از گیت‌هاب آپدیت شوند.»
-      # اپِ کارمندان (اندروید و آیفون) همین فایل را می‌خواند: ‎v‎ = شمارِ کامیت‌ها
-      # (همان شماره‌ای که فایلِ نصب هم داخلِ خودش دارد) و ‎apk‎ = نسخهٔ آخرین
-      # فایلِ نصبِ اندروید. اگر ‎v‎ تازه‌تر باشد، اپ فایل‌های تازه را می‌گیرد و
-      # خودش سوار می‌شود؛ اگر ‎apk‎ تازه‌تر باشد، دکمهٔ «فایلِ نصبِ تازه» می‌آید.
       - name: ساختِ kar/version.json
         run: |
           V=$(git rev-list --count HEAD)
@@ -161,14 +164,6 @@ jobs:
           cat kar/version.json
 
       # ── کوچک‌کردنِ فایل‌های منتشرشده ──────────────────────────────────────
-      # گزارشِ صاحب ریپو: «سایت آن‌قدر لگ می‌زند که گوشی‌ام دیگر بازش نمی‌کند.»
-      # ۲۸٪ِ جاوااسکریپتِ index.html فقط کامنت و تورفتگی است. برداشتنشان حجمِ
-      # فشرده‌ای را که گوشی دانلود می‌کند از ۹۷۷ به ۷۱۵ کیلوبایت می‌آورد و کارِ
-      # CPUِ بازشدن را ۱۳٪ کم می‌کند.
-      # ⚠️ فقط روی *خروجی* اجرا می‌شود؛ فایلِ داخلِ ریپو خوانا و کامنت‌دار
-      # می‌ماند — آن کامنت‌های فارسی توضیحِ باگ‌های برگشتنیِ این پروژه‌اند.
-      # ⚠️ اگر نصبِ esbuild یا خودِ کوچک‌سازی شکست بخورد، فایلِ اصلی منتشر
-      # می‌شود. هیچ‌وقت سایتِ نصفه‌کاره منتشر نمی‌شود.
       - name: کوچک‌کردنِ index.html برای انتشار
         continue-on-error: true
         run: |
@@ -181,17 +176,16 @@ jobs:
               echo "::warning::کوچک‌سازی شکست خورد — فایلِ اصلی منتشر می‌شود"
               cp /tmp/index.orig.html index.html
               cp /tmp/payam.orig.html payam/index.html
+              # فایل Tailwind باید بعد از fallback هم حفظ شود.
+              node tools/inject-static-ui.mjs
             fi
           else
             echo "::warning::esbuild نصب نشد — بدونِ کوچک‌سازی منتشر می‌شود"
           fi
           # node_modules هرگز نباید روی سایت برود
           rm -rf node_modules package.json package-lock.json
-          ls -l index.html payam/index.html
+          ls -l index.html payam/index.html assets/static-ui.css
 
-      # بدون فایل CNAME، گیت‌هاب دامنهٔ اختصاصی را کنار می‌گذارد و سایت با خطای
-      # گواهی (ERR_CERT_COMMON_NAME_INVALID) بالا می‌آید. پس اگر نبود، همین‌جا
-      # می‌ایستیم — نه این که سایت را خراب منتشر کنیم.
       - name: بررسی وجود دامنهٔ اختصاصی (CNAME)
         run: |
           test -s CNAME || { echo "::error::فایل CNAME نیست یا خالی است — دامنهٔ اختصاصی پاک می‌شود"; exit 1; }

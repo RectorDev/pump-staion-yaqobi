@@ -1,0 +1,368 @@
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Impeccable polish layer for the standalone/PWA surfaces.
+ *
+ * The legacy pages are deliberately kept behavior-identical: their JavaScript,
+ * ids and data contracts stay in place while presentation is progressively
+ * migrated to Tailwind. tools/inject-static-ui.mjs tags each page with data-ui
+ * so styles never leak between the independent applications.
+ */
+
+@layer components {
+  [data-ui] body {
+    @apply antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  [data-ui] :is(button, a, input, select, textarea) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  [data-ui] :is(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent, #3b82f6) 82%, white 18%);
+    outline-offset: 3px;
+  }
+
+  [data-ui] :is(button, a, input, select, textarea):disabled {
+    cursor: not-allowed;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Download / installation surface                                        */
+  /* ---------------------------------------------------------------------- */
+  [data-ui='download'] body {
+    @apply min-h-screen px-4 pb-16 pt-8 sm:px-6 sm:pt-12;
+    background: #0b1220;
+  }
+
+  [data-ui='download'] .wrap {
+    @apply mx-auto max-w-3xl;
+  }
+
+  [data-ui='download'] h1 {
+    @apply text-2xl font-bold tracking-tight sm:text-3xl;
+  }
+
+  [data-ui='download'] .lead {
+    @apply mt-2 max-w-2xl text-sm leading-7 sm:text-base;
+  }
+
+  [data-ui='download'] #download-cards,
+  [data-ui='download'] #card-installed {
+    @apply mt-6;
+  }
+
+  [data-ui='download'] .card,
+  [data-ui='download'] .installed {
+    @apply mb-3 rounded-panel border p-5 shadow-panel sm:p-6;
+    border-color: #26344d;
+    background: #121b2b;
+  }
+
+  [data-ui='download'] .card h2,
+  [data-ui='download'] .installed h2 {
+    @apply mb-2 flex items-center gap-2 text-base font-semibold sm:text-lg;
+  }
+
+  [data-ui='download'] .card p,
+  [data-ui='download'] .steps {
+    @apply text-sm leading-7;
+  }
+
+  [data-ui='download'] .btn {
+    @apply min-h-12 w-full rounded-control px-4 py-3 text-sm font-semibold transition duration-150 sm:text-base;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  }
+
+  [data-ui='download'] .btn:not(.ghost) {
+    @apply hover:-translate-y-px active:translate-y-0;
+  }
+
+  [data-ui='download'] .btn.ghost {
+    @apply hover:bg-white/5;
+  }
+
+  [data-ui='download'] .meta a,
+  [data-ui='download'] footer a {
+    @apply underline decoration-white/20 underline-offset-4 transition hover:decoration-white/60;
+  }
+
+  [data-ui='download'] .note {
+    @apply mt-4 rounded-control px-4 py-3 leading-6;
+  }
+
+  [data-ui='download'] footer {
+    @apply mt-8 border-t pt-6;
+    border-color: #26344d;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Employee / operations PWA                                              */
+  /* ---------------------------------------------------------------------- */
+  [data-ui='kar'] body {
+    background: var(--bg);
+  }
+
+  [data-ui='kar'] .wrap {
+    @apply mx-auto max-w-6xl px-3 pb-24 pt-4 sm:px-5;
+  }
+
+  [data-ui='kar'] .card {
+    @apply mb-3 rounded-panel border p-4 shadow-panel sm:p-5;
+  }
+
+  [data-ui='kar'] :is(input, select, textarea) {
+    @apply min-h-11 rounded-control px-3 py-2.5 transition;
+  }
+
+  [data-ui='kar'] button {
+    @apply min-h-11 rounded-control transition duration-150 hover:-translate-y-px active:translate-y-0;
+  }
+
+  [data-ui='kar'] button.p,
+  [data-ui='kar'] .tabs button[aria-selected='true'] {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 6px 18px rgb(0 0 0 / 0.10);
+  }
+
+  [data-ui='kar'] .figs,
+  [data-ui='kar'] .list,
+  [data-ui='kar'] .tiles {
+    @apply gap-2.5;
+  }
+
+  [data-ui='kar'] :is(.fig, .p-card, .tile, .st-row, .bn) {
+    @apply transition duration-150;
+  }
+
+  [data-ui='kar'] :is(.p-card, .tile, .st-row):hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  }
+
+  [data-ui='kar'] .gate {
+    @apply px-2 pb-10;
+  }
+
+  [data-ui='kar'] .hero .logo {
+    background: var(--accent);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+
+  [data-ui='kar'] .door .ic {
+    @apply rounded-control;
+  }
+
+  [data-ui='kar'] .door.owner .ic {
+    background: var(--accent);
+  }
+
+  [data-ui='kar'] .door.staff .ic {
+    background: #2a78d6;
+  }
+
+  [data-ui='kar'] .scroll {
+    @apply rounded-control border;
+    border-color: var(--line);
+  }
+
+  [data-ui='kar'] table {
+    @apply tabular-nums;
+  }
+
+  [data-ui='kar'] .nav {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 28px rgb(0 0 0 / 0.12);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Messenger                                                              */
+  /* ---------------------------------------------------------------------- */
+  [data-ui='payam'] header {
+    @apply min-h-14 px-4 py-3;
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.02);
+  }
+
+  [data-ui='payam'] .ico,
+  [data-ui='payam'] .tab,
+  [data-ui='payam'] .chip,
+  [data-ui='payam'] .btn {
+    @apply transition duration-150;
+  }
+
+  [data-ui='payam'] .ico {
+    @apply min-h-10 min-w-10;
+  }
+
+  [data-ui='payam'] .tabs {
+    @apply gap-2 px-3 py-2.5;
+  }
+
+  [data-ui='payam'] .tab {
+    @apply min-h-10 px-4;
+  }
+
+  [data-ui='payam'] #list {
+    @apply gap-2.5 px-3 py-4 sm:px-5;
+  }
+
+  [data-ui='payam'] .msg {
+    @apply rounded-panel px-3.5 py-2.5 shadow-sm;
+  }
+
+  [data-ui='payam'] .composer {
+    @apply gap-2.5 px-3 py-3 sm:px-5;
+    box-shadow: 0 -8px 30px rgb(0 0 0 / 0.12);
+  }
+
+  [data-ui='payam'] .composer textarea {
+    @apply min-h-12 rounded-panel px-4 py-3;
+  }
+
+  [data-ui='payam'] .send {
+    @apply h-12 w-12 rounded-control transition hover:brightness-110 active:scale-[0.98];
+  }
+
+  [data-ui='payam'] .sheet {
+    backdrop-filter: blur(4px);
+  }
+
+  [data-ui='payam'] .sheet-box {
+    @apply rounded-panel p-5 shadow-2xl sm:p-6;
+  }
+
+  [data-ui='payam'] .fld input {
+    @apply min-h-11 rounded-control;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Read-only customer account                                             */
+  /* ---------------------------------------------------------------------- */
+  [data-ui='view'] body {
+    @apply px-3 pb-20 pt-5 sm:px-5 sm:pt-8;
+  }
+
+  [data-ui='view'] .wrap {
+    @apply mx-auto max-w-5xl;
+  }
+
+  [data-ui='view'] .card {
+    @apply mb-3 rounded-panel border p-4 shadow-panel sm:p-5;
+  }
+
+  [data-ui='view'] .figs {
+    @apply gap-2.5;
+  }
+
+  [data-ui='view'] .fig {
+    @apply rounded-control px-3 py-3 tabular-nums transition;
+  }
+
+  [data-ui='view'] .btn,
+  [data-ui='view'] .chip,
+  [data-ui='view'] .tab {
+    @apply min-h-10 transition duration-150;
+  }
+
+  [data-ui='view'] .btn:hover,
+  [data-ui='view'] .chip:hover,
+  [data-ui='view'] .tab:hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  }
+
+  [data-ui='view'] .scroll {
+    @apply rounded-control border;
+    border-color: var(--line);
+  }
+
+  [data-ui='view'] table {
+    @apply tabular-nums;
+  }
+
+  [data-ui='view'] .live {
+    @apply rounded-control px-3 py-2.5;
+  }
+
+  [data-ui='view'] .fab {
+    @apply min-h-12 shadow-lg transition hover:-translate-y-px active:translate-y-0;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* WebVault admin                                                         */
+  /* ---------------------------------------------------------------------- */
+  [data-ui='webvault'] body {
+    background: var(--bg);
+  }
+
+  [data-ui='webvault'] .lock,
+  [data-ui='webvault'] .sidebar {
+    background: var(--bg);
+  }
+
+  [data-ui='webvault'] .lock-card,
+  [data-ui='webvault'] .panel,
+  [data-ui='webvault'] .stat {
+    @apply rounded-panel shadow-panel;
+    background: var(--panel);
+  }
+
+  [data-ui='webvault'] .lock-logo,
+  [data-ui='webvault'] .brand .mark,
+  [data-ui='webvault'] .btn.primary {
+    background: var(--brand);
+  }
+
+  [data-ui='webvault'] .nav-item,
+  [data-ui='webvault'] .btn,
+  [data-ui='webvault'] input,
+  [data-ui='webvault'] select,
+  [data-ui='webvault'] textarea {
+    @apply min-h-10 rounded-control transition duration-150;
+  }
+
+  [data-ui='webvault'] .nav-item:hover,
+  [data-ui='webvault'] .btn:hover {
+    transform: translateY(-1px);
+  }
+
+  [data-ui='webvault'] .topbar {
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  [data-ui='webvault'] .content {
+    @apply px-4 py-5 sm:px-6 sm:py-6 lg:px-8;
+  }
+
+  [data-ui='webvault'] table {
+    @apply tabular-nums;
+  }
+
+  /* The main 4 MB application is intentionally conservative: improve the
+     interaction floor globally without overriding its tightly-coupled layout. */
+  [data-ui='main'] :is(button, [role='button'], input, select, textarea) {
+    min-height: 40px;
+  }
+
+  [data-ui='main'] :is(table, .tnum, [data-number]) {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (hover: none) {
+  [data-ui] :is(button, a, [role='button']) {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ui] *,
+  [data-ui] *::before,
+  [data-ui] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
