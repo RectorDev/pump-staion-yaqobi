@@ -55,6 +55,7 @@ jobs:
           done
       - name: Verify PWA offline references
         run: |
+          grep -q './assets/static-ui.css' sw.js
           grep -q '../assets/static-ui.css' kar/sw.js
           grep -q '../assets/static-ui.css' payam/sw.js
 
