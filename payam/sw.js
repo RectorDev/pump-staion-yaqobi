@@ -10,11 +10,12 @@
 //    ۲) وقتی سرورِ خانگی پیامی می‌فرستد، حتی با برنامهٔ بسته و گوشیِ قفل،
 //       نوتیفیکیشنِ واقعی نشان می‌دهد.
 // ---------------------------------------------------------------------------
-const CACHE_NAME = 'payam-yaqobi-v2.9.466';
+const CACHE_NAME = 'payam-yaqobi-v2.9.466-ui1';
 const SHELL = [
   './',
   './index.html',
   './manifest.json',
+  '../assets/static-ui.css',
   '../icons/icon-192.png',
   '../icons/icon-512.png'
 ];
