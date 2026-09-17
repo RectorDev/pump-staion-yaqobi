@@ -11,6 +11,7 @@ const targets = [
 ];
 
 const marker = 'data-tailwind-ui="true"';
+const stylesheet = './assets/static-ui.css';
 let changed = 0;
 
 for (const { file, ui, href } of targets) {
@@ -43,6 +44,27 @@ for (const { file, ui, href } of targets) {
   } else {
     console.log(`— ${file}: already prepared`);
   }
+}
+
+// The root application promises a fully offline shell. Its service worker is a
+// large, hand-maintained file, so deployment adds the compiled stylesheet to
+// APP_SHELL idempotently instead of duplicating a fragile source-file rewrite.
+const swFile = 'sw.js';
+if (fs.existsSync(swFile)) {
+  let sw = fs.readFileSync(swFile, 'utf8');
+  if (!sw.includes(`'${stylesheet}'`) && !sw.includes(`"${stylesheet}"`)) {
+    const appShell = /(const\s+APP_SHELL\s*=\s*\[\s*\n)/;
+    if (!appShell.test(sw)) {
+      throw new Error(`${swFile}: APP_SHELL not found; refusing unsafe offline-cache injection`);
+    }
+    sw = sw.replace(appShell, `$1  '${stylesheet}',\n`);
+    fs.writeFileSync(swFile, sw);
+    console.log(`✓ ${swFile} → cached ${stylesheet}`);
+  } else {
+    console.log(`— ${swFile}: stylesheet already cached`);
+  }
+} else {
+  console.warn(`::warning::Root service worker not found: ${swFile}`);
 }
 
 console.log(`Prepared ${targets.length} static UI surfaces (${changed} changed).`);
