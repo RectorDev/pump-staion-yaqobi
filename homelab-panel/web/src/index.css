@@ -9,44 +9,50 @@
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
-  --surface-0: #f4f4f2;
-  --surface-1: #fcfcfb;
+  --surface-0: #f5f6f8;
+  --surface-1: #fbfcfd;
   --surface-2: #ffffff;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #86857f;
-  --border: #e3e2dd;
-  --series-1: #2a78d6; /* CPU */
-  --series-2: #eb6834; /* RAM */
-  --series-3: #1baf7a; /* دیسک */
-  --status-good: #008300;
-  --status-warning: #eda100;
-  --status-critical: #e34948;
-  --shadow: 0 1px 2px rgb(11 11 11 / 6%), 0 8px 24px rgb(11 11 11 / 4%);
+  --text-primary: #111827;
+  --text-secondary: #566071;
+  --text-muted: #8b95a5;
+  --border: #e2e6ec;
+  --series-1: #2f73d9; /* CPU / brand */
+  --series-2: #dc6a3d; /* RAM */
+  --series-3: #15966d; /* دیسک */
+  --status-good: #16845c;
+  --status-warning: #b7791f;
+  --status-critical: #d64b4b;
+  --shadow: 0 1px 2px rgb(15 23 42 / 5%), 0 10px 28px rgb(15 23 42 / 5%);
+  --shadow-raised: 0 14px 38px rgb(15 23 42 / 10%);
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --surface-0: #101010;
-  --surface-1: #1a1a19;
-  --surface-2: #232322;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #8d8c83;
-  --border: #32322f;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --status-good: #22a06b;
-  --status-warning: #c98500;
-  --status-critical: #e66767;
-  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 24%);
+  --surface-0: #111317;
+  --surface-1: #181b20;
+  --surface-2: #20242a;
+  --text-primary: #f4f7fb;
+  --text-secondary: #b8c0cc;
+  --text-muted: #7f8997;
+  --border: #2d333c;
+  --series-1: #4b8be7;
+  --series-2: #df7549;
+  --series-3: #34aa80;
+  --status-good: #36ad7c;
+  --status-warning: #d5a541;
+  --status-critical: #e76a6a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 34%), 0 12px 28px rgb(0 0 0 / 20%);
+  --shadow-raised: 0 18px 46px rgb(0 0 0 / 34%);
 }
 
 html,
 body,
 #root {
   height: 100%;
+}
+
+html {
+  background: var(--surface-0);
 }
 
 body {
@@ -56,6 +62,28 @@ body {
   font-family: Vazirmatn, 'Segoe UI', Tahoma, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--series-1);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--series-1) 24%, transparent);
 }
 
 /* اعداد در همهٔ زبان‌ها لاتین بمانند تا جدول‌ها هم‌تراز شوند */
@@ -73,10 +101,14 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border);
+  border: 2px solid transparent;
   border-radius: 999px;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 @layer components {
@@ -84,46 +116,90 @@ body {
     @apply rounded-2xl border border-line bg-surface;
     box-shadow: var(--shadow);
   }
-  .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2
-           text-sm font-medium text-ink transition-colors select-none
-           hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-50;
+
+  .card-raised {
+    @apply rounded-2xl border border-line bg-surface-raised;
+    box-shadow: var(--shadow-raised);
   }
+
+  .btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line px-3 py-2
+           text-sm font-medium text-ink transition duration-150 select-none
+           hover:-translate-y-px hover:bg-surface-raised active:translate-y-0
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
+  }
+
   .btn-primary {
     @apply border-transparent text-white;
     background: var(--series-1);
+    box-shadow: 0 1px 1px rgb(0 0 0 / 10%), inset 0 0 0 1px rgb(255 255 255 / 8%);
   }
   .btn-primary:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.06);
   }
+
   .btn-danger {
     @apply border-transparent text-white;
     background: var(--status-critical);
   }
+
   .btn-sm {
-    @apply px-2.5 py-1.5 text-xs;
+    @apply min-h-9 px-2.5 py-1.5 text-xs;
   }
+
+  .icon-btn {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line
+           text-ink-soft transition duration-150 hover:-translate-y-px hover:bg-surface-raised hover:text-ink
+           active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
   .input {
-    @apply w-full rounded-xl border border-line bg-surface-sunken px-3 py-2 text-sm text-ink
+    @apply min-h-10 w-full rounded-xl border border-line bg-surface-sunken px-3 py-2 text-sm text-ink
            outline-none transition placeholder:text-ink-muted;
   }
   .input:focus {
     border-color: var(--series-1);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-1) 22%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-1) 18%, transparent);
   }
+
   .label {
     @apply mb-1.5 block text-xs font-medium text-ink-soft;
   }
+
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium;
+    @apply inline-flex min-h-6 items-center gap-1 rounded-full border border-transparent px-2 py-0.5 text-[11px] font-medium;
+  }
+
+  .page-shell {
+    @apply mx-auto w-full max-w-[1600px];
+  }
+
+  .page-heading {
+    @apply mb-5 flex flex-col gap-1 sm:mb-6;
+  }
+
+  .page-title {
+    @apply text-xl font-semibold tracking-tight text-ink sm:text-2xl;
+  }
+
+  .page-subtitle {
+    @apply max-w-3xl text-sm leading-6 text-ink-soft;
+  }
+
+  .section-title {
+    @apply text-sm font-semibold text-ink;
+  }
+
+  .muted-panel {
+    @apply rounded-xl border border-line bg-surface-sunken;
   }
 }
 
-/* انیمیشن ورود کارت‌ها */
+/* انیمیشن ورود کارت‌ها — کوتاه و فقط برای جهت‌دهی بصری */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(5px);
   }
   to {
     opacity: 1;
@@ -131,10 +207,19 @@ body {
   }
 }
 .rise {
-  animation: rise 0.28s ease-out both;
+  animation: rise 0.22s ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .rise {
     animation: none;
   }
