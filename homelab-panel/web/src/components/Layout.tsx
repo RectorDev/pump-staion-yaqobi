@@ -52,7 +52,7 @@ export default function Layout() {
           className={({ isActive }) =>
             `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition duration-150 ${
               isActive
-                ? 'bg-brand/10 font-semibold text-brand ring-1 ring-inset ring-brand/15'
+                ? 'nav-active font-semibold text-brand'
                 : 'text-ink-soft hover:bg-surface-raised hover:text-ink'
             }`
           }
@@ -111,7 +111,7 @@ export default function Layout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b border-line bg-surface/92 px-3 py-2 backdrop-blur-xl sm:px-5">
+        <header className="topbar-glass sticky top-0 z-30 flex min-h-14 items-center gap-2 border-b border-line px-3 py-2 backdrop-blur-xl sm:px-5">
           <button className="icon-btn lg:hidden" onClick={() => setOpen(true)} aria-label="menu">
             <Menu className="h-4 w-4" />
           </button>
